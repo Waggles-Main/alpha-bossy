@@ -1,6 +1,7 @@
 import Grid from './components/Grid';
 import Controls from './components/Controls';
 import ScoreDisplay from './components/ScoreDisplay';
+import BagModal from './components/BagModal';
 
 export default function Home() {
   return (
@@ -8,6 +9,7 @@ export default function Home() {
       <ScoreDisplay />
       <Grid />
       <Controls />
+      <BagModal />
     </main>
   );
 }
