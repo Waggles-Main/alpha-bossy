@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isValidWord } from '../../lib/dictionary';
 
 // --- Data Structures ---
 
@@ -59,8 +60,12 @@ interface GameState {
   tileBag: TileBlueprint[];
   gridTiles: TileData[];
   selectedTileIds: number[];
+  wordValidity: 'VALID' | 'INVALID' | 'UNKNOWN';
   drawTiles: () => void;
   toggleTile: (tileId: number) => void;
+  clearSelection: () => void;
+  submitWord: () => Promise<void>;
+  validateCurrentWord: () => Promise<void>;
 }
 
 export const useGameStore = create<GameState>((set, get) => {
@@ -71,6 +76,7 @@ export const useGameStore = create<GameState>((set, get) => {
     tileBag: initialBag,
     gridTiles: [],
     selectedTileIds: [],
+    wordValidity: 'UNKNOWN',
 
     // --- Actions ---
     drawTiles: () => {
@@ -79,7 +85,7 @@ export const useGameStore = create<GameState>((set, get) => {
         ...tile,
         id: index, // Assign a simple ID based on position
       }));
-      set({ gridTiles: newGridTiles, selectedTileIds: [] }); // Reset selection
+      set({ gridTiles: newGridTiles, selectedTileIds: [], wordValidity: 'UNKNOWN' });
     },
 
     toggleTile: (tileId: number) => {
@@ -90,8 +96,52 @@ export const useGameStore = create<GameState>((set, get) => {
         } else {
           selectedIds.add(tileId);
         }
-        return { selectedTileIds: Array.from(selectedIds) };
+        // Reset validity on change, the component will trigger a re-validation
+        return { selectedTileIds: Array.from(selectedIds), wordValidity: 'UNKNOWN' };
       });
+    },
+
+    clearSelection: () => {
+      set({ selectedTileIds: [], wordValidity: 'UNKNOWN' });
+    },
+
+    submitWord: async () => {
+      const { selectedTileIds, gridTiles } = get();
+      if (selectedTileIds.length === 0) {
+        console.log("No word selected.");
+        return;
+      }
+
+      const word = selectedTileIds.map(id => 
+        gridTiles.find(tile => tile.id === id)?.letter
+      ).join('');
+
+      if (await isValidWord(word)) {
+        console.log(`'${word}' is a valid word!`);
+        // TODO: Add scoring logic
+      } else {
+        console.log(`'${word}' is not a valid word.`);
+        // TODO: Add penalty or feedback
+      }
+
+      get().clearSelection();
+    },
+
+    validateCurrentWord: async () => {
+      const { selectedTileIds, gridTiles } = get();
+
+      // Don't validate very short words for performance and UX reasons.
+      if (selectedTileIds.length < 3) {
+        set({ wordValidity: 'UNKNOWN' });
+        return;
+      }
+
+      const word = selectedTileIds.map(id => 
+        gridTiles.find(tile => tile.id === id)?.letter
+      ).join('');
+
+      const isValid = await isValidWord(word);
+      set({ wordValidity: isValid ? 'VALID' : 'INVALID' });
     },
   };
 });

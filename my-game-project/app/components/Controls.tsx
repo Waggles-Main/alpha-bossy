@@ -1,21 +1,16 @@
 'use client';
 
-const Controls = () => {
-  const handleClear = () => {
-    // aDD CLEAR LOGIC HERE
-    console.log('Clear button clicked');
-  };
+import { useGameStore } from "../store/useGameStore";
 
-  const handlePlay = () => {
-    // ADD PLAY LOGIC HERE
-    console.log('Play button clicked');
-  };
+const Controls = () => {
+  const clearSelection = useGameStore((state) => state.clearSelection);
+  const submitWord = useGameStore((state) => state.submitWord);
 
   return (
     <div className="flex justify-center space-x-4 mt-4">
       <button
-        onClick={handleClear}
-        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+        onClick={clearSelection}
+        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
       >
         Clear
       </button>
@@ -26,7 +21,7 @@ const Controls = () => {
         Bag
       </button>
       <button
-        onClick={handlePlay}
+        onClick={submitWord}
         className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
       >
         Play
