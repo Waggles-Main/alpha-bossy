@@ -30,9 +30,7 @@ const Grid = () => {
       {gridTiles.map((tile) => (
         <Tile
           key={tile.id}
-          id={tile.id}
-          letter={tile.letter}
-          points={tile.points}
+          tile={tile}
           isSelected={selectedIdsSet.has(tile.id)}
           onClick={toggleTile}
         />

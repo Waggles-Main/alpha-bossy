@@ -1,52 +1,57 @@
 // app/components/Tile.tsx
 import React from 'react';
 import clsx from 'clsx';
+import { TileData } from '../store/useGameStore';
 
-// The props now include everything needed to render the tile and handle interaction.
 interface TileProps {
-  id: number;
-  letter: string;
-  points: number;
+  tile: TileData;
   isSelected: boolean;
   onClick: (id: number) => void;
 }
 
-const Tile: React.FC<TileProps> = ({ id, letter, points, isSelected, onClick }) => {
+const Tile: React.FC<TileProps> = ({ tile, isSelected, onClick }) => {
+  const { id, letter, points, type } = tile;
+
   const displayLetter = letter === 'Blank' ? '' : letter;
   const isQu = letter.toUpperCase() === 'QU';
+  const isEmpty = type === 'EMPTY';
 
   return (
     <div
-      // When the tile is clicked, it calls the function passed down from the Grid.
       onClick={() => onClick(id)}
-      // `clsx` is a handy utility for conditionally joining class names.
-      // It makes reading and managing complex states much cleaner than template literals.
       className={clsx(
-        "w-24 h-24 rounded-lg flex items-center justify-center font-bold border-2 cursor-pointer transition-all duration-150 ease-in-out relative",
+        "w-24 h-24 rounded-lg flex items-center justify-center font-bold border-2 transition-all duration-150 ease-in-out relative",
         {
+          // Empty/disabled state
+          'bg-gray-800 border-gray-900 cursor-not-allowed': isEmpty,
+
           // Default state
-          'bg-gray-700 border-gray-500': !isSelected,
+          'bg-gray-700 border-gray-500 cursor-pointer': !isSelected && !isEmpty,
+          'hover:bg-gray-600 hover:border-gray-400 hover:-translate-y-1 hover:shadow-lg': !isSelected && !isEmpty,
+
           // Selected state
-          'bg-blue-500 border-blue-300 scale-105': isSelected,
-          // Hover state (for unselected tiles)
-          'hover:bg-gray-600 hover:border-gray-400 hover:-translate-y-1 hover:shadow-lg': !isSelected,
+          'bg-blue-500 border-blue-300 scale-105 cursor-pointer': isSelected && !isEmpty,
         }
       )}
     >
-      <span className={clsx('transition-transform text-white', {
-        'text-3xl': isQu,
-        'text-4xl': !isQu,
-        'transform -translate-y-1': isSelected, // Slightly raise the letter when selected
-      })}>
-        {displayLetter}
-      </span>
-      
-      {points > 0 && (
-        <span className={clsx("absolute bottom-1 right-2 text-lg font-medium text-point-blue transition-transform", {
-          'transform -translate-y-1': isSelected,
-        })}>
-          {points}
-        </span>
+      {!isEmpty && (
+        <>
+          <span className={clsx('transition-transform text-white', {
+            'text-3xl': isQu,
+            'text-4xl': !isQu,
+            'transform -translate-y-1': isSelected,
+          })}>
+            {displayLetter}
+          </span>
+          
+          {points > 0 && (
+            <span className={clsx("absolute bottom-1 right-2 text-lg font-medium text-point-blue transition-transform", {
+              'transform -translate-y-1': isSelected,
+            })}>
+              {points}
+            </span>
+          )}
+        </>
       )}
     </div>
   );
