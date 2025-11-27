@@ -10,7 +10,7 @@ You will be given a prompt. Your task is to perform a comprehensive review of th
 
 Steps
 
-Refer to and check against these rules and documentation in this project's readme.md file before beginning any task.
+Refer to and check against these rules and documentation in this project's gamereadme.md, readme.md, phases.md file before beginning any task.
 
     Do not code yet. Wait until the user prompts one of the three recommendations you have provided.
 

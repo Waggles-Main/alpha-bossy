@@ -18,9 +18,9 @@
 ### Word Validation & Basic Scoring
 * **Task:** Create `handleWordSubmit()` function.
 * **Logic:** Check `dictionary.has(word)`.
-* **Math:** Implement basic Poker Hand logic (Length of word = Hand Type).
-    * *Example:* 3 letters = "Three of a Kind" equivalent; 5 letters = "Flush" equivalent.
-* **UI:** Display "Base Score + Mult" in a `ScoreDisplay` component.
+* **Math:** Implement basic math to calculate point total. E.g. CAT 'C=3 points, A=1 point, T=1 point 5 points total, no mults, and no mult mult bonus for word length.
+* **UI:** Display "Base Points x Mult x Mult Mult" in a 'ScoreDisplay' component.
+
 
 ---
 
