@@ -45,7 +45,7 @@
 ### The Blind System
 * **Task:** Create `lib/mechanics/blinds.ts`.
 * **Logic:** Define the scaling curve.
-    * `Target = Base * (GrowthFactor)^Ante`
+    * `Target = Base * Small Ante = 1x base	Big Ante = 1.5x base	Round Boss = 2x base
 
 ---
 
@@ -62,6 +62,17 @@ type TriggerType = 'onScore' | 'onDiscard' | 'onSelect';
 interface Glyph {
   id: string;
   description: string;
-  trigger: TriggerType;
   calculate: (context: GameState) => number; // Returns modifier
 }
+```
+
+---
+
+## Phase 4: Roguelike Story (Placeholder)
+**Goal:** Narrative events and progression.
+
+* **Placeholder:** This section will detail the "Events" logic, random encounters, and storylets (Roguelike choices) that occur between blinds.
+* **Features:**
+    * Event Pool Management.
+    * Choice UI (Narrative text + distinct options).
+    * Persistent metaprogression (Unlocks).
