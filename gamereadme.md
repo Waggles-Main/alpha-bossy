@@ -19,23 +19,23 @@
 
 ## 2. The Run (Macro Loop)
 
-A standard run consists of **8 Antes**. Each Ante increases the difficulty (Target Score/Points).
+A standard run consists of **8 Rounds**. Each Round increases the difficulty (Target Score/Points).
 
-* **Ante 1 through 8:** The goal is to defeat the Boss Blind of Ante 8.
-* **Endless Mode:** If Ante 8 is cleared, the player can choose to end the run (Victory) or continue to Ante 9+ (Endless) to see how far they can score.
+* **Round 1 through 8:** The goal is to defeat the Boss of Round 8.
+* **Endless Mode:** If Round 8 is cleared, the player can choose to end the run (Victory) or continue to Round 9+ (Endless) to see how far they can score.
 
-### The Ante Structure
-Each Ante is divided into three Blinds and two Events:
+### The Round Structure
+Each Round is divided into **9 Stages**:
 
 1.  **Small Blind:** Lowest target score. (Reward: $3)
 2.  **Event 1:** (Random minigame or event)
-3.  **Shop**
+3.  **Shop 1**
 4.  **Big Blind:** Medium target score. (Reward: $4)
 5.  **Event 2:** (Random minigame or event)
-6.  **Shop**
+6.  **Shop 2**
 7.  **Boss Blind:** Highest target score + Unique Ability/Debuff. (Reward: $5)
-8.  **Shop**
-9.  **Next Ante**
+8.  **Shop 3**
+9.  **Next Round**
 
 ---
 
@@ -54,12 +54,11 @@ Enters the Boggle gameplay phase.
 ### Boggle Phase
 **Goal:** Score enough Points to beat the Target Score before running out of Words.
 
-1.  **Draw Tiles:** Player draws Tiles from their deck up to their Word Size limit (Default: 8).
+1.  **Draw Tiles:** Player draws Tiles from their deck up to their Word Size limit (Default: 16 grid).
 2.  **Action Step:**
-    * **Play Word:** Select up to 5 Tiles to play a Poker Word.
-        * *Valid Words:* High Card, Pair, Two Pair, Three of a Kind, Straight, Flush, Full House, Four of a Kind, Straight Flush, Royal Flush.
-        * *Secret Words:* Five of a Kind, Flush House, Flush Five (must be discovered or unlocked).
-    * **Discard:** Select up to 5 Tiles to discard and redraw to fill Word Size. (Costs 1 Discard use).
+    * **Play Word:** Select contiguous tiles to play a Word.
+    * **Discard:** Select tiles to discard and redraw. (Costs 1 Discard use).
+    * **Limits:** You have **5 Words** and **3 Discards** per Stage. These reset every Stage.
 
 ### Scoring Calculation
 * **Base Points:** Determined by the Tile Points or additional Tile point modifier.
@@ -100,7 +99,7 @@ Accessible after defeating a Blind (unless the Blind was skipped).
 
 ### Actions
 * **Buy:** Purchase item.
-* **Reroll:** Spend money (starts at $5, increases per use by +$2) to refresh the items in the Standard Slots.
+* **Reroll:** Spend money (starts at **$5**) to refresh the items in the Standard Slots.
 * **Next Round:** Leave shop and proceed to the next Blind.
 
 ---
@@ -118,7 +117,7 @@ This stage triggers between Blinds.
 * *Word Scramble:* Player is given a 5-6 letter anagram. Player submits valid words formed from those letters until all target words are found. (Reward: $, Character Glyphs, or other).
 
 **Narrative Decisions (Roguelite Choice)**
-* *The Crossroads:* Choose between "Safe Path" (Gain $10) or "Risky Path" (Lose all Discards for next Ante, gain x2 Mult Joker).
+* *The Crossroads:* Choose between "Safe Path" (Gain $10) or "Risky Path" (Lose all Discards for next Round, gain x2 Mult Joker).
 * *The Alchemist:* Offer to destroy 2 random Character Glyphs to create 1 Legendary Character Glyph.
 * *Tile Mutation:* Choose to permanently convert all O’s to A’s, or remove all X tiles.
 
@@ -132,5 +131,5 @@ This stage triggers between Blinds.
 
 * **Loss:** Failing to reach the required score in a Blind.
     * *Result:* "Game Over" screen, stats shown, seed revealed, unlock progress tallied.
-* **Win:** Defeating the Boss Blind of Ante 8.
+* **Win:** Defeating the Boss Blind of Round 8.
     * *Result:* "Victory" screen. Unlocks new difficulties (Stakes) or Decks. Option to return to menu or start Endless Mode.

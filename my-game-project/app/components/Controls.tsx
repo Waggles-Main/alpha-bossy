@@ -5,6 +5,7 @@ import { useGameStore } from "../store/useGameStore";
 const Controls = () => {
   const clearSelection = useGameStore((state) => state.clearSelection);
   const submitWord = useGameStore((state) => state.submitWord);
+  const discardSelection = useGameStore((state) => state.discardSelection);
   const openModal = useGameStore((state) => state.openModal);
 
   return (
@@ -18,11 +19,17 @@ const Controls = () => {
       <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
         Options
       </button>
-      <button 
+      <button
         onClick={() => openModal('BAG')}
         className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
       >
         Bag
+      </button>
+      <button
+        onClick={discardSelection}
+        className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+      >
+        Discard
       </button>
       <button
         onClick={submitWord}
