@@ -2,7 +2,8 @@
 
 import React, { useEffect } from 'react';
 // @ts-ignore
-import { useGameStore, TileData, getWordLengthMultiplier } from '../store/useGameStore';
+import { useGameStore, TileData } from '../store/useGameStore';
+import { getWordLengthMultiplier, calculateHandScore } from '../lib/scoring';
 import { clsx } from 'clsx';
 
 const ScoreDisplay = () => {
@@ -20,6 +21,7 @@ const ScoreDisplay = () => {
   const wordsRemaining = useGameStore((state) => state.wordsRemaining);
   const discardsRemaining = useGameStore((state) => state.discardsRemaining);
   const money = useGameStore((state) => state.money);
+  const inventory = useGameStore((state) => state.inventory);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -37,12 +39,14 @@ const ScoreDisplay = () => {
     .filter((tile): tile is TileData => tile !== undefined);
 
   // --- Scoring Logic (Preview) ---
-  // Must match useGameStore.ts submitWord logic
-  const currentBasePoints = selectedTiles.reduce((total, tile) => total + tile.points, 0);
-  const wordLength = selectedTiles.length;
-  // Simple Mult for now: Length of word
-  const currentMult = getWordLengthMultiplier(wordLength);
-  const previewScore = currentBasePoints * currentMult;
+  const heldTiles = gridTiles.filter(t => !selectedTileIds.includes(t.id));
+
+  // Calculate score using the central engine
+  const scoreResult = calculateHandScore(selectedTiles, inventory, heldTiles);
+
+  const currentBasePoints = scoreResult.basePoints;
+  const currentMult = scoreResult.baseMult; // This includes length mult + modifiers
+  const previewScore = scoreResult.totalScore;
 
 
   return (
@@ -83,8 +87,8 @@ const ScoreDisplay = () => {
           </div>
         </div>
         <div className="flex flex-col text-center pl-4 border-l border-gray-700">
-          <span className="text-xs uppercase tracking-widest text-amber-500">$</span>
-          <span className="text-2xl font-bold text-amber-500">${money}</span>
+          <span className="text-xs uppercase tracking-widest text-yellow-400">$</span>
+          <span className="text-2xl font-bold text-yellow-400">${money}</span>
         </div>
       </div>
 
@@ -125,7 +129,16 @@ const ScoreDisplay = () => {
           <div className="border-t border-gray-700 pt-3 flex justify-center items-center gap-2">
             <span className="text-blue-400 font-bold text-2xl">{currentBasePoints}</span>
             <span className="text-gray-500">x</span>
-            <span className="text-red-400 font-bold text-2xl">{currentMult}</span>
+            <span className="text-red-500 font-bold text-2xl">{currentMult}</span>
+
+            {/* Display X Mult if active */}
+            {scoreResult.totalXMult && scoreResult.totalXMult > 1 && (
+              <>
+                <span className="text-gray-500">x</span>
+                <span className="text-purple-400 font-bold text-2xl">{scoreResult.totalXMult.toFixed(1).replace(/\.0$/, '')}</span>
+              </>
+            )}
+
             <span className="text-gray-500">=</span>
             <span className="text-white font-bold text-3xl">{previewScore}</span>
           </div>

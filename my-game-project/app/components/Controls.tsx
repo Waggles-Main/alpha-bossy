@@ -1,6 +1,7 @@
 'use client';
 
 import { useGameStore } from "../store/useGameStore";
+import Link from 'next/link';
 
 const Controls = () => {
   const clearSelection = useGameStore((state) => state.clearSelection);
@@ -16,9 +17,9 @@ const Controls = () => {
       >
         Clear
       </button>
-      <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
-        Options
-      </button>
+      <Link href="/sandbox" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 inline-block text-center">
+        Options (Sandbox)
+      </Link>
       <button
         onClick={() => openModal('BAG')}
         className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"

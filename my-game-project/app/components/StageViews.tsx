@@ -1,9 +1,12 @@
 import React from 'react';
 import { useGameStore } from '../store/useGameStore';
+
 import { GameButton } from './GameButton';
+import GlyphCard from './GlyphCard';
+import GlyphArea from './GlyphArea';
 
 export const ShopView = () => {
-    const { advanceStage, money, rerollShop } = useGameStore();
+    const { advanceStage, money, rerollShop, shopItems, buyGlyph } = useGameStore();
 
     return (
         <div className="flex flex-col items-center w-full max-w-md mx-auto min-h-screen py-8 text-black space-y-4">
@@ -22,19 +25,28 @@ export const ShopView = () => {
                 </div>
             </div>
 
+            {/* Inventory Area */}
+            <div className="w-full bg-slate-800/50 p-2 border-2 border-slate-900">
+                <GlyphArea />
+            </div>
+
             {/* Items Section */}
             <div className="w-full bg-slate-100 border-2 border-slate-900 p-4">
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                    {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="aspect-[2/3] bg-white border border-slate-900 flex flex-col items-center justify-between p-1 text-[0.6rem] font-bold shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                            <div className="text-center leading-tight">
-                                <div>ITEM</div>
-                                <div className="text-slate-500">TYPE</div>
-                            </div>
-                            <div className="w-full h-8 bg-slate-200" /> {/* Graphic Placeholder */}
-                            <div className="text-orange-500">$5</div>
-                        </div>
-                    ))}
+                <div className="flex justify-center gap-4 mb-8 min-h-[240px] items-center">
+                    {/* Increased container height and centered for GlyphCards */}
+                    {shopItems.length > 0 ? (
+                        shopItems.map((item, index) => (
+                            <GlyphCard
+                                key={item.instanceId || `${item.id}-${index}`} // Fallback key
+                                glyph={item}
+                                isShopItem={true}
+                                price={item.baseCost}
+                                onAction={() => buyGlyph(item)}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-gray-500 italic">Sold Out</div>
+                    )}
                 </div>
 
                 <GameButton
