@@ -10,20 +10,25 @@ export interface ScoreResult {
     breakdown: string[]; // Log of what happened for debug/UI
 }
 
-export const getWordLengthMultiplier = (length: number): number => {
-    if (length <= 5) return 1;
+export const getWordLengthMultiplier = (length: number, offset: number = 0): number => {
+    // Effective length shifts us up the table.
+    // Length 5 with offset 1 (Verbose) -> Effective 6 -> x2 multiplier.
+    const effectiveLength = length + offset;
+
+    if (effectiveLength <= 5) return 1;
     const multipliers: { [key: number]: number } = {
         6: 2, 7: 3, 8: 5, 9: 8, 10: 13,
         11: 21, 12: 34, 13: 55, 14: 89,
         15: 144, 16: 233
     };
-    return multipliers[length] || 1;
+    return multipliers[effectiveLength] || (effectiveLength > 16 ? 233 : 1);
 };
 
 export const calculateHandScore = (
     playedTiles: TileData[],
     inventory: Glyph[],
-    gridTiles: TileData[] = [] // Needed for Grid Phase
+    gridTiles: TileData[] = [], // Needed for Grid Phase
+    verboseLevel: number = 0
 ): ScoreResult => {
     let points = 0;
     let mult = 0;
@@ -181,7 +186,7 @@ export const calculateHandScore = (
     if (mult < 1) mult = 1;
 
     // 2. Apply Word Length Multiplier as X Mult (Purple)
-    const lenMult = getWordLengthMultiplier(playedTiles.length);
+    const lenMult = getWordLengthMultiplier(playedTiles.length, verboseLevel);
     if (lenMult > 1) {
         totalXMult *= lenMult;
         breakdown.push(`Word Length (${playedTiles.length}): x${lenMult} Mult`);
