@@ -2,16 +2,9 @@ import { create } from 'zustand';
 import { isValidWord } from '../../lib/dictionary';
 // @ts-ignore
 import { getBlindConfig } from '../../lib/mechanics/blinds';
-
-export const getWordLengthMultiplier = (length: number): number => {
-  if (length <= 5) return 1;
-  const multipliers: { [key: number]: number } = {
-    6: 2, 7: 3, 8: 5, 9: 8, 10: 13,
-    11: 21, 12: 34, 13: 55, 14: 89,
-    15: 144, 16: 233
-  };
-  return multipliers[length] || 1;
-};
+import { Glyph } from '../types/Glyph';
+import { generateShopItems } from '../lib/rng';
+import { calculateHandScore } from '../lib/scoring';
 
 // --- Data Structures ---
 
@@ -23,6 +16,9 @@ export interface TileBlueprint {
 export interface TileData extends TileBlueprint {
   id: number;
   type?: 'EMPTY';
+  edition?: 'Foil' | 'Holographic' | 'Polychrome';
+  enhancement?: 'Steel' | 'Stone' | 'Glass' | 'Gold' | 'Wild';
+  seal?: 'Red' | 'Gold' | 'Blue' | 'Purple';
 }
 
 // --- Helper Functions ---
@@ -126,6 +122,8 @@ interface GameState {
   currentReward: number;
   roundWords: { word: string, score: number }[];
 
+
+
   // Actions
   initGame: () => void;
   refillGrid: (usedTileIds: number[]) => void;
@@ -138,6 +136,14 @@ interface GameState {
   closeModal: () => void;
   advanceStage: () => void;
   rerollShop: () => void;
+  // New Actions
+  buyGlyph: (glyph: Glyph) => void;
+  sellGlyph: (index: number) => void;
+  moveGlyph: (fromIndex: number, toIndex: number) => void;
+  generateShop: () => void;
+
+  shopItems: Glyph[];
+  inventory: Glyph[];
 }
 
 export const useGameStore = create<GameState>((set, get) => {
@@ -159,6 +165,11 @@ export const useGameStore = create<GameState>((set, get) => {
     roundWords: [],
     wordsRemaining: 4,
     discardsRemaining: 3,
+
+    shopItems: [],
+    inventory: [],
+
+
 
     // --- Actions ---
     openModal: (modal) => set({ activeModal: modal }),
@@ -185,7 +196,9 @@ export const useGameStore = create<GameState>((set, get) => {
         wordsRemaining: 5,
         discardsRemaining: 3,
         roundWords: [],
-        activeModal: null
+        activeModal: null,
+        shopItems: [],
+        inventory: []
       });
     },
 
@@ -247,7 +260,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     submitWord: async () => {
-      const { selectedTileIds, gridTiles, refillGrid, wordsRemaining, roundScore, targetScore, clearSelection } = get();
+      const { selectedTileIds, gridTiles, refillGrid, wordsRemaining, roundScore, targetScore, clearSelection, money, inventory } = get();
 
       if (selectedTileIds.length === 0 || wordsRemaining <= 0) {
         return;
@@ -259,23 +272,25 @@ export const useGameStore = create<GameState>((set, get) => {
       if (validWord) {
         console.log(`'${validWord}' is a valid word!`);
 
-        const basePoints = selectedTiles.reduce((sum, t) => sum + t.points, 0);
-        const wordLength = selectedTiles.length;
-        const lengthMultiplier = getWordLengthMultiplier(wordLength);
-        const handScore = basePoints * lengthMultiplier;
+        const heldTiles = gridTiles.filter(t => !selectedTileIds.includes(t.id));
+        const result = calculateHandScore(selectedTiles, inventory, heldTiles);
 
-        const newScore = roundScore + handScore;
+        const newScore = roundScore + result.totalScore;
         const newWords = wordsRemaining - 1;
         const isWin = newScore >= targetScore;
+        const newMoney = money + result.moneyEarned;
 
-        const newRoundWords = [...get().roundWords, { word: validWord, score: handScore }];
+        const newRoundWords = [...get().roundWords, { word: validWord, score: result.totalScore }];
+
+        console.log("Scoring Breakdown:", result.breakdown);
 
         refillGrid(selectedTileIds);
 
         set({
           roundScore: newScore,
           wordsRemaining: newWords,
-          roundWords: newRoundWords
+          roundWords: newRoundWords,
+          money: newMoney
         });
 
         if (isWin) {
@@ -356,15 +371,61 @@ export const useGameStore = create<GameState>((set, get) => {
           wordsRemaining: 5, // Reset to 5 every stage
           discardsRemaining: 3 // Reset to 3 every stage
         });
+
+        if (nextStage.includes('SHOP')) {
+          get().generateShop();
+        }
       }
     },
 
     rerollShop: () => {
-      const { money } = get();
+      const { money, generateShop } = get();
       if (money >= 5) {
         set({ money: money - 5 });
-        // Logic to refresh shop items would go here
+        generateShop();
       }
+    },
+
+    generateShop: () => {
+      const { inventory } = get();
+      const newItems = generateShopItems(2, inventory); // Pass inventory to exclude owned
+      set({ shopItems: newItems });
+    },
+
+    buyGlyph: (glyph: Glyph) => {
+      const { money, inventory, shopItems } = get();
+      const cost = glyph.baseCost || 0; // Or calculate dynamic cost
+
+      if (money >= cost && inventory.length < 5) {
+        set({
+          money: money - cost,
+          inventory: [...inventory, glyph],
+          shopItems: shopItems.filter(item => item !== glyph) // Remove bought item
+        });
+      }
+    },
+
+    sellGlyph: (index: number) => {
+      const { inventory, money } = get();
+      const glyph = inventory[index];
+      if (!glyph) return;
+
+      const newInventory = [...inventory];
+      newInventory.splice(index, 1);
+
+      set({
+        inventory: newInventory,
+        money: money + glyph.sellValue
+      });
+    },
+
+    moveGlyph: (fromIndex: number, toIndex: number) => {
+      set((state) => {
+        const newInventory = [...state.inventory];
+        const [movedGlyph] = newInventory.splice(fromIndex, 1);
+        newInventory.splice(toIndex, 0, movedGlyph);
+        return { inventory: newInventory };
+      });
     },
 
     validateCurrentWord: async () => {
