@@ -1,113 +1,28 @@
 import { create } from 'zustand';
-import { isValidWord } from '../../lib/dictionary';
-// @ts-ignore
-import { getBlindConfig } from '../../lib/mechanics/blinds';
+import { getBlindConfig } from '../lib/mechanics/blinds';
 import { Glyph } from '../types/Glyph';
 import { generateShopItems } from '../lib/rng';
+import { Upgrade } from '../types/Upgrade';
+import { UPGRADES } from '../data/upgrades';
 import { calculateHandScore } from '../lib/scoring';
-
-// --- Data Structures ---
-
-export interface TileBlueprint {
-  letter: string;
-  points: number;
-}
-
-export interface TileData extends TileBlueprint {
-  id: number;
-  type?: 'EMPTY';
-  edition?: 'Foil' | 'Holographic' | 'Polychrome';
-  enhancement?: 'Steel' | 'Stone' | 'Glass' | 'Gold' | 'Wild';
-  seal?: 'Red' | 'Gold' | 'Blue' | 'Purple';
-}
-
-// --- Helper Functions ---
-
-const createTileBag = (): TileData[] => {
-  const distribution: { [letter: string]: { quantity: number; points: number } } = {
-    'E': { quantity: 12, points: 1 }, 'A': { quantity: 9, points: 1 },
-    'I': { quantity: 9, points: 1 }, 'O': { quantity: 8, points: 1 },
-    'N': { quantity: 6, points: 1 }, 'R': { quantity: 6, points: 1 },
-    'T': { quantity: 6, points: 1 }, 'L': { quantity: 4, points: 1 },
-    'S': { quantity: 4, points: 1 }, 'U': { quantity: 4, points: 1 },
-    'D': { quantity: 4, points: 2 }, 'G': { quantity: 3, points: 2 },
-    'B': { quantity: 2, points: 3 }, 'C': { quantity: 2, points: 3 },
-    'M': { quantity: 2, points: 3 }, 'P': { quantity: 2, points: 3 },
-    'F': { quantity: 2, points: 4 }, 'H': { quantity: 2, points: 4 },
-    'V': { quantity: 2, points: 4 }, 'W': { quantity: 2, points: 4 },
-    'Y': { quantity: 2, points: 4 }, 'K': { quantity: 1, points: 5 },
-    'J': { quantity: 1, points: 8 }, 'X': { quantity: 1, points: 8 },
-    'Qu': { quantity: 1, points: 10 }, 'Z': { quantity: 1, points: 10 },
-    'Blank': { quantity: 2, points: 0 },
-  };
-
-  const bag: TileData[] = [];
-  let idCounter = 0;
-  for (const letter in distribution) {
-    const { quantity, points } = distribution[letter];
-    for (let i = 0; i < quantity; i++) {
-      bag.push({ letter, points, id: idCounter++ });
-    }
-  }
-  return bag;
-};
-
-const shuffle = (array: TileData[]) => {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-};
+import { TileData } from '../types/Tile';
+import { createTileBag, shuffle, resolveBlankTiles } from '../lib/tileUtils';
 
 
 // --- Zustand Store ---
-
-async function resolveBlankTiles(tiles: TileData[]): Promise<string | null> {
-  const blankIndices = tiles.map((t, i) => t.letter === 'Blank' ? i : -1).filter(i => i !== -1);
-
-  if (blankIndices.length === 0) {
-    const word = tiles.map(t => t.letter).join('');
-    return await isValidWord(word) ? word : null;
-  }
-
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const wordTemplate = tiles.map(t => t.letter);
-
-  async function findFirstValid(template: string[], blankIndexPosition: number): Promise<string | null> {
-    if (blankIndexPosition >= blankIndices.length) {
-      const finalWord = template.join('');
-      return await isValidWord(finalWord) ? finalWord : null;
-    }
-
-    const currentBlankIndex = blankIndices[blankIndexPosition];
-    for (const char of alphabet) {
-      template[currentBlankIndex] = char;
-      const result = await findFirstValid(template, blankIndexPosition + 1);
-      if (result) {
-        return result;
-      }
-    }
-
-    template[currentBlankIndex] = 'Blank';
-    return null;
-  }
-
-  return await findFirstValid(wordTemplate, 0);
-}
 
 export type GameStage =
   | 'SMALL_BLIND' | 'EVENT_1' | 'SHOP_1'
   | 'BIG_BLIND' | 'EVENT_2' | 'SHOP_2'
   | 'BOSS_BLIND' | 'SHOP_3';
 
-interface GameState {
+export interface GameState {
   tileBag: TileData[];
   gridTiles: TileData[];
   selectedTileIds: number[];
   wordValidity: 'VALID' | 'INVALID' | 'UNKNOWN';
   resolvedWord: string | null;
-  activeModal: 'BAG' | 'GAME_OVER' | 'ROUND_CLEARED' | null;
+  activeModal: 'BAG' | 'GAME_OVER' | 'ROUND_CLEARED' | 'OPTIONS' | null;
 
   // Phase 2 + Core Loop State
   currentRound: number; // Was 'ante'
@@ -141,9 +56,19 @@ interface GameState {
   sellGlyph: (index: number) => void;
   moveGlyph: (fromIndex: number, toIndex: number) => void;
   generateShop: () => void;
+  // Dev Actions
+  addMoney: (amount: number) => void;
+  beatRound: () => void;
 
+  rerollCost: number;
   shopItems: Glyph[];
   inventory: Glyph[];
+
+  // Upgrades
+  ownedUpgrades: string[]; // IDs
+  availableUpgrades: Upgrade[];
+  hasPurchasedUpgradeThisRound: boolean;
+  buyUpgrade: (upgrade: Upgrade) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => {
@@ -166,8 +91,13 @@ export const useGameStore = create<GameState>((set, get) => {
     wordsRemaining: 4,
     discardsRemaining: 3,
 
+    rerollCost: 5,
     shopItems: [],
     inventory: [],
+
+    ownedUpgrades: [],
+    availableUpgrades: [],
+    hasPurchasedUpgradeThisRound: false,
 
 
 
@@ -192,13 +122,18 @@ export const useGameStore = create<GameState>((set, get) => {
         roundScore: 0,
         targetScore: blindConfig.targetScore,
         currentReward: blindConfig.reward,
+        // Upgrades Logic: Initial State
         money: 4,
-        wordsRemaining: 5,
-        discardsRemaining: 3,
+        wordsRemaining: 5 + (get().ownedUpgrades?.includes('wordy') ? 1 : 0) + (get().ownedUpgrades?.includes('wordy_plus') ? 1 : 0),
+        discardsRemaining: 3 + (get().ownedUpgrades?.includes('wasteful') ? 1 : 0) + (get().ownedUpgrades?.includes('wasteful_plus') ? 1 : 0),
         roundWords: [],
         activeModal: null,
         shopItems: [],
-        inventory: []
+        inventory: [],
+        rerollCost: Math.max(1, 5 - (get().ownedUpgrades?.includes('reroll') ? 2 : 0) - (get().ownedUpgrades?.includes('reroll_plus') ? 2 : 0)),
+        ownedUpgrades: [],
+        availableUpgrades: [],
+        hasPurchasedUpgradeThisRound: false
       });
     },
 
@@ -273,7 +208,11 @@ export const useGameStore = create<GameState>((set, get) => {
         console.log(`'${validWord}' is a valid word!`);
 
         const heldTiles = gridTiles.filter(t => !selectedTileIds.includes(t.id));
-        const result = calculateHandScore(selectedTiles, inventory, heldTiles);
+
+        // Calculate verbose level
+        const verboseLevel = (get().ownedUpgrades.includes('verbose') ? 1 : 0) + (get().ownedUpgrades.includes('verbose_plus') ? 1 : 0);
+
+        const result = calculateHandScore(selectedTiles, inventory, heldTiles, verboseLevel);
 
         const newScore = roundScore + result.totalScore;
         const newWords = wordsRemaining - 1;
@@ -329,8 +268,9 @@ export const useGameStore = create<GameState>((set, get) => {
           roundScore: 0,
           roundWords: [],
           activeModal: null,
-          wordsRemaining: 5, // Reset to 5
-          discardsRemaining: 3 // Reset to 3
+          wordsRemaining: 5 + (get().ownedUpgrades?.includes('wordy') ? 1 : 0) + (get().ownedUpgrades?.includes('wordy_plus') ? 1 : 0), // Reset to 5 + upgrades
+          discardsRemaining: 3 + (get().ownedUpgrades?.includes('wasteful') ? 1 : 0) + (get().ownedUpgrades?.includes('wasteful_plus') ? 1 : 0) // Reset to 3 + upgrades
+          // Do NOT reset hasPurchasedUpgradeThisRound here. It's carried over from SHOP_3.
         });
       } else {
         const stages: GameStage[] = [
@@ -368,8 +308,10 @@ export const useGameStore = create<GameState>((set, get) => {
           roundScore: 0,
           roundWords: (nextStage.includes('BLIND')) ? [] : get().roundWords,
           activeModal: null,
-          wordsRemaining: 5, // Reset to 5 every stage
-          discardsRemaining: 3 // Reset to 3 every stage
+          wordsRemaining: 5 + (get().ownedUpgrades?.includes('wordy') ? 1 : 0) + (get().ownedUpgrades?.includes('wordy_plus') ? 1 : 0), // Reset to 5 + upgrades
+          discardsRemaining: 3 + (get().ownedUpgrades?.includes('wasteful') ? 1 : 0) + (get().ownedUpgrades?.includes('wasteful_plus') ? 1 : 0), // Reset to 3 + upgrades
+          rerollCost: Math.max(1, 5 - (get().ownedUpgrades?.includes('reroll') ? 2 : 0) - (get().ownedUpgrades?.includes('reroll_plus') ? 2 : 0)), // Reset reroll cost
+          hasPurchasedUpgradeThisRound: nextStage === 'SHOP_3' ? false : get().hasPurchasedUpgradeThisRound
         });
 
         if (nextStage.includes('SHOP')) {
@@ -379,24 +321,60 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     rerollShop: () => {
-      const { money, generateShop } = get();
-      if (money >= 5) {
-        set({ money: money - 5 });
-        generateShop();
+      const { money, rerollCost, inventory, ownedUpgrades } = get();
+      if (money >= rerollCost) {
+        // Only refresh Glyphs (Shop Items)
+        const shopSize = 2 + (ownedUpgrades.includes('overstock') ? 1 : 0) + (ownedUpgrades.includes('overstock_plus') ? 1 : 0);
+        const newItems = generateShopItems(shopSize, inventory);
+
+        set({
+          money: money - rerollCost,
+          rerollCost: rerollCost + 2,
+          shopItems: newItems
+          // availableUpgrades is preserved
+        });
       }
     },
 
     generateShop: () => {
-      const { inventory } = get();
-      const newItems = generateShopItems(2, inventory); // Pass inventory to exclude owned
-      set({ shopItems: newItems });
+      const { inventory, ownedUpgrades } = get();
+      // Overstock: Base 2 + 1 (Overstock) + 1 (Plus)
+      const shopSize = 2 + (ownedUpgrades.includes('overstock') ? 1 : 0) + (ownedUpgrades.includes('overstock_plus') ? 1 : 0);
+      const newItems = generateShopItems(shopSize, inventory); // Pass inventory to exclude owned
+
+      // Generate Upgrades available for this shop
+      const potentialUpgrades = Object.values(UPGRADES).filter(u => {
+        // 1. Must not be already owned
+        if (ownedUpgrades.includes(u.id)) return false;
+
+        // 2. If dependent, must own base upgrade
+        if (u.type === 'DEPENDENT' && u.baseUpgradeId) {
+          return ownedUpgrades.includes(u.baseUpgradeId);
+        }
+
+        return true;
+      });
+
+      // Select 1 random upgrade if any available
+      let selectedUpgrades: Upgrade[] = [];
+      if (potentialUpgrades.length > 0) {
+        const randomIndex = Math.floor(Math.random() * potentialUpgrades.length);
+        selectedUpgrades = [potentialUpgrades[randomIndex]];
+      }
+
+      set({
+        shopItems: newItems,
+        availableUpgrades: selectedUpgrades
+      });
     },
 
     buyGlyph: (glyph: Glyph) => {
-      const { money, inventory, shopItems } = get();
+      const { money, inventory, shopItems, ownedUpgrades } = get();
       const cost = glyph.baseCost || 0; // Or calculate dynamic cost
 
-      if (money >= cost && inventory.length < 5) {
+      const glyphLimit = 5 + (ownedUpgrades.includes('glyph_slot') ? 1 : 0) + (ownedUpgrades.includes('glyph_slot_plus') ? 1 : 0);
+
+      if (money >= cost && inventory.length < glyphLimit) {
         set({
           money: money - cost,
           inventory: [...inventory, glyph],
@@ -426,6 +404,47 @@ export const useGameStore = create<GameState>((set, get) => {
         newInventory.splice(toIndex, 0, movedGlyph);
         return { inventory: newInventory };
       });
+    },
+
+    buyUpgrade: (upgrade: Upgrade) => {
+      const { money, ownedUpgrades, hasPurchasedUpgradeThisRound } = get();
+      if (money >= upgrade.cost && !ownedUpgrades.includes(upgrade.id) && !hasPurchasedUpgradeThisRound) {
+        set({
+          money: money - upgrade.cost,
+          ownedUpgrades: [...ownedUpgrades, upgrade.id],
+          hasPurchasedUpgradeThisRound: true
+        });
+        // Apply immediate effects if any
+        // Wasteful (Discards)
+        if (upgrade.id === 'wasteful' || upgrade.id === 'wasteful_plus') {
+          set((state) => ({ discardsRemaining: state.discardsRemaining + 1 }));
+        }
+
+        // Wordy (Hands/Words)
+        if (upgrade.id === 'wordy' || upgrade.id === 'wordy_plus') {
+          set((state) => ({ wordsRemaining: state.wordsRemaining + 1 }));
+        }
+
+        // Reroll (Cost reduction immediate?)
+        // If we buy reroll, current reroll cost should decrease immediately?
+        // Current logic: rerollCost is state.
+        if (upgrade.id === 'reroll' || upgrade.id === 'reroll_plus') {
+          set((state) => ({ rerollCost: Math.max(1, state.rerollCost - 2) }));
+        }
+
+        if (upgrade.onBuy) {
+          upgrade.onBuy(get());
+        }
+      }
+    },
+
+    addMoney: (amount: number) => {
+      set((state) => ({ money: state.money + amount }));
+    },
+
+    beatRound: () => {
+      const { targetScore } = get();
+      set({ roundScore: targetScore, activeModal: 'ROUND_CLEARED' });
     },
 
     validateCurrentWord: async () => {

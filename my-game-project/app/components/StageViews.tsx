@@ -4,9 +4,10 @@ import { useGameStore } from '../store/useGameStore';
 import { GameButton } from './GameButton';
 import GlyphCard from './GlyphCard';
 import GlyphArea from './GlyphArea';
+import UpgradeCard from './UpgradeCard';
 
 export const ShopView = () => {
-    const { advanceStage, money, rerollShop, shopItems, buyGlyph } = useGameStore();
+    const { advanceStage, money, rerollShop, shopItems, buyGlyph, availableUpgrades, buyUpgrade, ownedUpgrades, rerollCost, hasPurchasedUpgradeThisRound } = useGameStore();
 
     return (
         <div className="flex flex-col items-center w-full max-w-md mx-auto min-h-screen py-8 text-black space-y-4">
@@ -52,10 +53,10 @@ export const ShopView = () => {
                 <GameButton
                     variant="danger"
                     onClick={rerollShop}
-                    disabled={money < 5}
+                    disabled={money < rerollCost}
                     className="w-full"
                 >
-                    REROLL $5
+                    REROLL ${rerollCost}
                 </GameButton>
             </div>
 
@@ -78,17 +79,51 @@ export const ShopView = () => {
             {/* Round Upgrades Section */}
             <div className="w-full bg-white border-2 border-slate-900 p-4">
                 <h3 className="text-center font-bold text-xl mb-2 uppercase">Round Upgrades</h3>
-                <div className="grid grid-cols-2 gap-4">
-                    {[1, 2].map((i) => (
-                        <div key={i} className="aspect-square bg-white border border-slate-900 flex flex-col items-center justify-between p-2 text-xs font-bold shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                            <div className="text-center leading-none">
-                                <div>VOUCHER</div>
-                                <div className="text-slate-500 text-[0.6rem]">TYPE</div>
-                            </div>
-                            <div className="w-full h-8 bg-slate-200" /> {/* Graphic Placeholder */}
-                            <div className="text-orange-500">$10</div>
+                <div className="flex flex-wrap justify-center gap-4 min-h-[160px] items-center">
+                    {hasPurchasedUpgradeThisRound && availableUpgrades.length === 0 ? (
+                        <div className="text-center">
+                            <div className="text-green-600 font-bold mb-1">Upgrade purchased for Round {useGameStore.getState().currentRound}</div>
+                            <div className="text-xs text-gray-500">Restocks next round</div>
                         </div>
-                    ))}
+                    ) : availableUpgrades.length > 0 ? (
+                        availableUpgrades.map((upgrade) => {
+                            const isLocked = !!(upgrade.type === 'DEPENDENT' && upgrade.baseUpgradeId && !ownedUpgrades.includes(upgrade.baseUpgradeId));
+                            const isPurchased = ownedUpgrades.includes(upgrade.id);
+
+                            if (isPurchased) {
+                                return (
+                                    <div key={upgrade.id} className="w-32 h-32 rounded-xl bg-slate-200 border-4 border-slate-300 flex items-center justify-center m-2 select-none">
+                                        <div className="text-center">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-sm block">Purchased</span>
+                                            <span className="text-slate-400 text-[10px] mt-1">Refreshes next round</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // If somehow visible but limit reached (e.g. bug or same shop view)
+                            const limitReached = hasPurchasedUpgradeThisRound;
+
+                            return (
+                                <div key={upgrade.id} className="relative">
+                                    <UpgradeCard
+                                        upgrade={upgrade}
+                                        onAction={() => buyUpgrade(upgrade)}
+                                        // Shop logic: Check money and lock status. Also check limit.
+                                        canAfford={money >= upgrade.cost && !limitReached}
+                                        isLocked={isLocked}
+                                    />
+                                    {limitReached && (
+                                        <div className="absolute inset-0 bg-slate-900/60 z-30 flex items-center justify-center rounded-xl pointer-events-none">
+                                            <span className="text-white font-bold text-xs uppercase bg-black/50 px-2 py-1 rounded">Round Limit Reached</span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="text-gray-500 italic">No Upgrades Available</div>
+                    )}
                 </div>
             </div>
 

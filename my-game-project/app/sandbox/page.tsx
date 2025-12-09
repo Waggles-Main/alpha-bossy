@@ -1,59 +1,62 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import GlyphCard from '../components/GlyphCard';
-import { GLYPHS } from '../data/glyphs';
+import UpgradeCard from '../components/UpgradeCard';
+import { UPGRADES } from '../data/upgrades';
 
-const SandboxPage = () => {
-
-
+export default function SandboxPage() {
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-8 font-sans">
-            <div className="max-w-6xl mx-auto">
-                <header className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
-                    <h1 className="text-3xl font-bold text-blue-400">Developer Sandbox</h1>
-                    <Link
-                        href="/"
-                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
-                    >
-                        ← Back to Game
-                    </Link>
-                </header>
+        <div className="p-8 bg-slate-200 min-h-screen">
+            <h1 className="text-2xl font-bold mb-4">Upgrade Feature Sandbox</h1>
 
-                <section className="mb-12">
-                    <h2 className="text-xl font-semibold mb-6 text-gray-300">Glyph Registry (Real Data)</h2>
-                    <p className="text-gray-400 mb-8 italic">Verified implementation of Big A and Little A.</p>
+            <div className="flex gap-4 mb-8">
+                <div>
+                    <h2 className="mb-2 font-bold">Base Upgrade (Unowned)</h2>
+                    <UpgradeCard
+                        upgrade={UPGRADES['wasteful']}
+                        onAction={() => alert('Buy Wasteful!')}
+                        isPurchased={false}
+                        canAfford={true}
+                    />
+                </div>
 
-                    <div className="flex flex-wrap gap-16 justify-center items-start">
+                <div>
+                    <h2 className="mb-2 font-bold">Base Upgrade (Owned)</h2>
+                    <UpgradeCard
+                        upgrade={UPGRADES['wasteful']}
+                        onAction={() => { }}
+                        isPurchased={true}
+                        canAfford={true}
+                    />
+                </div>
 
-                        {/* Big A Card */}
-                        <div className="flex flex-col items-center">
-                            <GlyphCard
-                                glyph={GLYPHS.BIG_A}
-                                currentStats={{ mult: 0 }} // Logic not hooked to store yet
-                                onSell={() => alert(`Sell for $${GLYPHS.BIG_A.sellValue}`)}
-                            />
-                        </div>
+                <div>
+                    <h2 className="mb-2 font-bold">Dependent Upgrade (Locked)</h2>
+                    <UpgradeCard
+                        upgrade={UPGRADES['recycling']}
+                        onAction={() => { }}
+                        isPurchased={false}
+                        canAfford={true}
+                        isLocked={true}
+                    />
+                </div>
 
-                        {/* Little A Card */}
-                        <div className="flex flex-col items-center">
-                            <GlyphCard
-                                glyph={GLYPHS.LITTLE_A}
-                                currentStats={{ points: 0 }} // Logic not hooked to store yet
-                                onSell={() => alert(`Sell for $${GLYPHS.LITTLE_A.sellValue}`)}
-                            />
-                        </div>
-
-                    </div>
-                </section>
-
-                <section className="p-4 bg-blue-900/20 border border-blue-900 rounded text-sm text-blue-200 mt-20">
-                    <p>This sandbox now displays the <strong>Official Glyph Definitions</strong> from <code>app/data/glyphs.ts</code>.</p>
-                </section>
+                <div>
+                    <h2 className="mb-2 font-bold">Dependent Upgrade (Unlocked)</h2>
+                    <UpgradeCard
+                        upgrade={UPGRADES['recycling']}
+                        onAction={() => alert('Buy Recycling!')}
+                        isPurchased={false}
+                        canAfford={true}
+                        isLocked={false}
+                    />
+                </div>
             </div>
+
+            <p className="max-w-md text-sm text-gray-600">
+                This sandbox demonstrates the visual states of upgrades: Available, Purchased, Locked, and Unlocked.
+                Logic for checking dependencies will be handled in the store.
+            </p>
         </div>
     );
-};
-
-export default SandboxPage;
+}

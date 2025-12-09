@@ -9,6 +9,7 @@ import { GameEndModal } from './components/GameEndModal';
 import { useGameStore } from './store/useGameStore';
 import { ShopView, EventView } from './components/StageViews';
 import GlyphArea from './components/GlyphArea';
+import { OptionsModal } from './components/OptionsModal';
 
 export default function Home() {
   const { currentStage, initGame } = useGameStore();
@@ -39,6 +40,8 @@ export default function Home() {
       {isShopStage && <ShopView />}
 
       {isEventStage && <EventView />}
+
+      {useGameStore(state => state.activeModal) === 'OPTIONS' && <OptionsModal />}
 
     </main>
   );
