@@ -21,6 +21,7 @@ export function getBlindConfig(ante: number, roundNumber: number) {
 
     return {
         targetScore,
+        baseScore,
         reward: 3 + ante,
     };
 }

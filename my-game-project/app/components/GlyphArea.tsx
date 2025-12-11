@@ -10,6 +10,8 @@ const GlyphArea = () => {
     const inventory = useGameStore((state) => state.inventory);
     const moveGlyph = useGameStore((state) => state.moveGlyph);
     const sellGlyph = useGameStore((state) => state.sellGlyph);
+    const disabledGlyphIds = useGameStore((state) => state.disabledGlyphIds);
+    const ownedUpgrades = useGameStore((state) => state.ownedUpgrades);
 
     // For Active Effect Calculation
     const selectedTileIds = useGameStore((state) => state.selectedTileIds);
@@ -20,7 +22,11 @@ const GlyphArea = () => {
         .map(id => gridTiles.find(t => t.id === id))
         .filter((t): t is TileData => t !== undefined);
 
-    const MAX_SLOTS = 5;
+    // Calculate Dynamic MAX_SLOTS
+    // Base 5 + ('glyph_slot' ? 1 : 0) + ('glyph_slot_plus' ? 1 : 0)
+    const MAX_SLOTS = 5
+        + (ownedUpgrades.includes('glyph_slot') ? 1 : 0)
+        + (ownedUpgrades.includes('glyph_slot_plus') ? 1 : 0);
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
         e.dataTransfer.setData('text/plain', index.toString());
@@ -67,8 +73,8 @@ const GlyphArea = () => {
                             selectedTiles.forEach(tile => {
                                 const res = glyph.calculate({
                                     playedTiles: selectedTiles,
-                                    gameStage: 'SMALL_BLIND',
-                                    round: 1
+                                    gridTiles: gridTiles,
+                                    inventory: inventory
                                 }, tile);
                                 if (res) {
                                     hasEffect = true;
@@ -83,8 +89,8 @@ const GlyphArea = () => {
                         else {
                             const res = glyph.calculate({
                                 playedTiles: selectedTiles,
-                                gameStage: 'SMALL_BLIND',
-                                round: 1
+                                gridTiles: gridTiles,
+                                inventory: inventory
                             });
                             if (res) {
                                 hasEffect = true;
@@ -100,10 +106,14 @@ const GlyphArea = () => {
                         }
                     }
 
+                    const isDisabled = glyph && disabledGlyphIds.includes(glyph.instanceId || glyph.id);
+
                     return (
                         <div
                             key={index}
-                            className="w-24 h-32 flex-shrink-0 relative group"
+                            className={clsx("w-24 h-32 flex-shrink-0 relative group transition-all", {
+                                'opacity-50 grayscale': isDisabled // Apply visual disabled state
+                            })}
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, index)}
                         >

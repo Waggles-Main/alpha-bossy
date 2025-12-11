@@ -15,7 +15,7 @@ export const getWordLengthMultiplier = (length: number, offset: number = 0): num
     // Length 5 with offset 1 (Verbose) -> Effective 6 -> x2 multiplier.
     const effectiveLength = length + offset;
 
-    if (effectiveLength <= 5) return 1;
+    if (effectiveLength <= 4) return 1;
     const multipliers: { [key: number]: number } = {
         6: 2, 7: 3, 8: 5, 9: 8, 10: 13,
         11: 21, 12: 34, 13: 55, 14: 89,
@@ -28,7 +28,8 @@ export const calculateHandScore = (
     playedTiles: TileData[],
     inventory: Glyph[],
     gridTiles: TileData[] = [], // Needed for Grid Phase
-    verboseLevel: number = 0
+    verboseLevel: number = 0,
+    bossId: string | null = null
 ): ScoreResult => {
     let points = 0;
     let mult = 0;
@@ -180,17 +181,27 @@ export const calculateHandScore = (
         }
     });
 
+    // --- PHASE 3: BASE ADJUSTMENTS ---
+    // Apply The Flint (Base Chips and Mult halved)
+    // Applied to the *current* points (Chips sum) and *current* mult (Card/Hand bonuses).
+    if (bossId === 'the_flint') {
+        points = Math.ceil(points * 0.5);
+        mult = Math.ceil(mult * 0.5);
+        breakdown.push(`The Flint: Halved Base Chips & Mult`);
+    }
+
+    // --- PHASE 5: WORD LENGTH MODIFIER (X Mult) ---
+    // User requested this be an X Mult (Purple)
+    const lenMult = getWordLengthMultiplier(playedTiles.length, verboseLevel);
+    if (lenMult > 1) {
+        totalXMult *= lenMult;
+        breakdown.push(`Word Length (${playedTiles.length + verboseLevel}): x${lenMult} Mult`);
+    }
+
     // --- FINAL ADJUSTMENTS ---
 
     // 1. Ensure Base Mult is at least 1
     if (mult < 1) mult = 1;
-
-    // 2. Apply Word Length Multiplier as X Mult (Purple)
-    const lenMult = getWordLengthMultiplier(playedTiles.length, verboseLevel);
-    if (lenMult > 1) {
-        totalXMult *= lenMult;
-        breakdown.push(`Word Length (${playedTiles.length}): x${lenMult} Mult`);
-    }
 
     // FINAL CALC
     const finalScore = Math.floor(points * mult * totalXMult);

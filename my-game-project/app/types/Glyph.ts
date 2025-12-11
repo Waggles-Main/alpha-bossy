@@ -1,4 +1,4 @@
-import type { TileData } from '../store/useGameStore';
+import type { TileData } from './Tile';
 
 export interface ScoreModifier {
     points?: number;    // +Chips

@@ -10,9 +10,11 @@ import { useGameStore } from './store/useGameStore';
 import { ShopView, EventView } from './components/StageViews';
 import GlyphArea from './components/GlyphArea';
 import { OptionsModal } from './components/OptionsModal';
+import VictoryModal from './components/VictoryModal';
 import { useProfileStore } from './store/useProfileStore';
 import StartScreen from './components/StartScreen';
 import MainMenu from './components/MainMenu';
+import BossDisplay from './components/BossDisplay';
 
 export default function Home() {
   const { currentStage, initGame, appPhase, goToMenu, goToStartScreen, activeModal } = useGameStore();
@@ -65,6 +67,7 @@ export default function Home() {
       {isGameStage && (
         <>
           <ScoreDisplay />
+          <BossDisplay />
           <GlyphArea />
           <Grid />
           <Controls />
@@ -75,6 +78,8 @@ export default function Home() {
       {isShopStage && <ShopView />}
 
       {isEventStage && <EventView />}
+
+      {activeModal === 'VICTORY' && <VictoryModal />}
 
       {activeModal === 'OPTIONS' && <OptionsModal />}
 

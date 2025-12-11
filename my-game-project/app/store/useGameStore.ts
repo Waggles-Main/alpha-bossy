@@ -7,6 +7,7 @@ import { UPGRADES } from '../data/upgrades';
 import { calculateHandScore } from '../lib/scoring';
 import { TileData } from '../types/Tile';
 import { createTileBag, shuffle, resolveBlankTiles } from '../lib/tileUtils';
+import { Boss, BOSS_KEYS, BOSSES } from '../data/bosses';
 
 
 // --- Zustand Store ---
@@ -16,13 +17,15 @@ export type GameStage =
   | 'BIG_BLIND' | 'EVENT_2' | 'SHOP_2'
   | 'BOSS_BLIND' | 'SHOP_3';
 
+export type { TileData };
+
 export interface GameState {
   tileBag: TileData[];
   gridTiles: TileData[];
   selectedTileIds: number[];
   wordValidity: 'VALID' | 'INVALID' | 'UNKNOWN';
   resolvedWord: string | null;
-  activeModal: 'BAG' | 'GAME_OVER' | 'ROUND_CLEARED' | 'OPTIONS' | null;
+  activeModal: 'BAG' | 'GAME_OVER' | 'ROUND_CLEARED' | 'OPTIONS' | 'VICTORY' | null;
 
   // Phase 2 + Core Loop State
   currentRound: number; // Was 'ante'
@@ -36,6 +39,12 @@ export interface GameState {
   money: number;
   currentReward: number;
   roundWords: { word: string, score: number }[];
+
+  // Boss State
+  currentBoss: Boss | null;
+  encounteredBosses: string[];
+  disabledGlyphIds: string[]; // For Crimson Heart
+  forcedTileId: number | null; // For Cerulean Bell
 
 
 
@@ -112,6 +121,11 @@ export const useGameStore = create<GameState>((set, get) => {
     availableUpgrades: [],
     hasPurchasedUpgradeThisRound: false,
 
+    currentBoss: null,
+    encounteredBosses: [],
+    disabledGlyphIds: [],
+    forcedTileId: null,
+
 
 
     // --- Actions ---
@@ -156,7 +170,11 @@ export const useGameStore = create<GameState>((set, get) => {
         rerollCost: Math.max(1, 5 - (get().ownedUpgrades?.includes('reroll') ? 2 : 0) - (get().ownedUpgrades?.includes('reroll_plus') ? 2 : 0)),
         ownedUpgrades: [],
         availableUpgrades: [],
-        hasPurchasedUpgradeThisRound: false
+        hasPurchasedUpgradeThisRound: false,
+        currentBoss: null,
+        encounteredBosses: [],
+        disabledGlyphIds: [],
+        forcedTileId: null,
       });
     },
 
@@ -230,17 +248,42 @@ export const useGameStore = create<GameState>((set, get) => {
       if (validWord) {
         console.log(`'${validWord}' is a valid word!`);
 
+        const { currentBoss, forcedTileId, tileBag } = get();
+
+        // Cerulean Bell Check
+        if (currentBoss?.id === 'cerulean_bell' && forcedTileId) {
+          if (!selectedTileIds.includes(forcedTileId)) {
+            // Check if tile is even in grid? It should be if forced.
+            console.log("Must use forced tile!");
+            // TODO: Add visual feedback or error? For now just return.
+            // Ideally we shouldn't even let them submit, but for now:
+            // Actually, verify tile exists in grid logic first.
+            const forcedTileInGrid = gridTiles.find(t => t.id === forcedTileId);
+            if (forcedTileInGrid) {
+              return; // Fail silently or add toast later
+            }
+          }
+        }
+
         const heldTiles = gridTiles.filter(t => !selectedTileIds.includes(t.id));
 
         // Calculate verbose level
         const verboseLevel = (get().ownedUpgrades.includes('verbose') ? 1 : 0) + (get().ownedUpgrades.includes('verbose_plus') ? 1 : 0);
 
-        const result = calculateHandScore(selectedTiles, inventory, heldTiles, verboseLevel);
+        // Filter out disabled glyphs
+        const activeInventory = inventory.filter(g => !get().disabledGlyphIds.includes(g.id));
+
+        const result = calculateHandScore(selectedTiles, activeInventory, heldTiles, verboseLevel, currentBoss?.id || null);
 
         const newScore = roundScore + result.totalScore;
         const newWords = wordsRemaining - 1;
         const isWin = newScore >= targetScore;
-        const newMoney = money + result.moneyEarned;
+        let newMoney = money + result.moneyEarned;
+
+        // The Tooth Logic
+        if (currentBoss?.id === 'the_tooth') {
+          newMoney -= selectedTiles.length;
+        }
 
         const newRoundWords = [...get().roundWords, { word: validWord, score: result.totalScore }];
 
@@ -248,15 +291,55 @@ export const useGameStore = create<GameState>((set, get) => {
 
         refillGrid(selectedTileIds);
 
+        // Crimson Heart Logic (Post-Hand)
+        let nextDisabledGlyphIds: string[] = [];
+        if (currentBoss?.id === 'crimson_heart' && inventory.length > 0) {
+          const randomGlyph = inventory[Math.floor(Math.random() * inventory.length)];
+          nextDisabledGlyphIds = [randomGlyph.id];
+          // Note: id might not be unique if multiple copies. ideally use instanceId or index.
+          // But inventory is Glyph[], glyph has id.
+          // Let's assume for now we disable ALL copies of that glyph type OR we need unique IDs.
+          // Glyph interface has instanceId? Let's check Glyph.ts... Yes.
+          if (randomGlyph.instanceId) {
+            nextDisabledGlyphIds = [randomGlyph.instanceId];
+          } else {
+            // Fallback if no instanceId (shouldn't happen if properly initialized)
+            // Just disable by ID (type) might be too harsh if they have 2.
+          }
+        }
+
+        // Cerulean Bell Logic (Post-Refill)
+        let nextForcedTileId = null;
+        if (currentBoss?.id === 'cerulean_bell') {
+          // Pick a random tile from the NEW grid
+          // We need to access the updated grid. `refillGrid` updates state.
+          // However, `refillGrid` is sync but `set` might batch? Zustand `set` is sync.
+          // Let's get state again.
+          const newGrid = get().gridTiles;
+          // Filter out empty?
+          const validTiles = newGrid.filter(t => t.type !== 'EMPTY');
+          if (validTiles.length > 0) {
+            const randomTile = validTiles[Math.floor(Math.random() * validTiles.length)];
+            nextForcedTileId = randomTile.id;
+          }
+        }
+
         set({
           roundScore: newScore,
           wordsRemaining: newWords,
           roundWords: newRoundWords,
-          money: newMoney
+          money: newMoney,
+          disabledGlyphIds: nextDisabledGlyphIds,
+          forcedTileId: nextForcedTileId
         });
 
         if (isWin) {
-          set({ activeModal: 'ROUND_CLEARED' });
+          // Check for Victory (Round 8 Boss)
+          if (get().currentRound === 8 && get().currentStage === 'BOSS_BLIND') {
+            set({ activeModal: 'VICTORY' });
+          } else {
+            set({ activeModal: 'ROUND_CLEARED' });
+          }
         } else if (newWords <= 0) {
           set({ activeModal: 'GAME_OVER' });
         }
@@ -322,6 +405,38 @@ export const useGameStore = create<GameState>((set, get) => {
         } else if (nextStage === 'BOSS_BLIND') {
           const config = getBlindConfig(currentRound, 3);
           newTargetScore = config.targetScore;
+
+          // Select Boss
+          const { encounteredBosses } = get();
+          const allPotentialBosses = BOSS_KEYS.filter(key => BOSSES[key].minAnte <= currentRound);
+
+          let potentialBosses = allPotentialBosses.filter(key => !encounteredBosses.includes(key));
+          if (potentialBosses.length === 0) {
+            // Reset if all encountered (or just pick from all)
+            potentialBosses = allPotentialBosses;
+          }
+
+          const bossKey = potentialBosses[Math.floor(Math.random() * potentialBosses.length)];
+          const boss = BOSSES[bossKey];
+
+          // Add to encountered
+          set({ encounteredBosses: [...encounteredBosses, boss.id] });
+
+          // Apply Boss Scalar Modifiers
+          if (boss.id === 'the_wall') {
+            newTargetScore = newTargetScore * 2; // "4x base" - normally Boss is 2x base. So 4x is 2 * 2x? 
+            // Base Blind Config: Boss is 2x Base.
+            // The Wall Effect: "4x base". So yes, 2 * BossScore.
+          }
+          if (boss.id === 'the_needle') {
+            newTargetScore = config.baseScore; // "1x base"
+          }
+
+          set({ currentBoss: boss });
+        }
+        // Reset Boss if not Boss Blind
+        if (nextStage !== 'BOSS_BLIND') {
+          set({ currentBoss: null, disabledGlyphIds: [], forcedTileId: null });
         }
 
         set({
@@ -331,11 +446,42 @@ export const useGameStore = create<GameState>((set, get) => {
           roundScore: 0,
           roundWords: (nextStage.includes('BLIND')) ? [] : get().roundWords,
           activeModal: null,
-          wordsRemaining: 5 + (get().ownedUpgrades?.includes('wordy') ? 1 : 0) + (get().ownedUpgrades?.includes('wordy_plus') ? 1 : 0), // Reset to 5 + upgrades
-          discardsRemaining: 3 + (get().ownedUpgrades?.includes('wasteful') ? 1 : 0) + (get().ownedUpgrades?.includes('wasteful_plus') ? 1 : 0), // Reset to 3 + upgrades
-          rerollCost: Math.max(1, 5 - (get().ownedUpgrades?.includes('reroll') ? 2 : 0) - (get().ownedUpgrades?.includes('reroll_plus') ? 2 : 0)), // Reset reroll cost
+          wordsRemaining: 5 + (get().ownedUpgrades?.includes('wordy') ? 1 : 0) + (get().ownedUpgrades?.includes('wordy_plus') ? 1 : 0), // Base
+          discardsRemaining: 3 + (get().ownedUpgrades?.includes('wasteful') ? 1 : 0) + (get().ownedUpgrades?.includes('wasteful_plus') ? 1 : 0), // Base
+          rerollCost: Math.max(1, 5 - (get().ownedUpgrades?.includes('reroll') ? 2 : 0) - (get().ownedUpgrades?.includes('reroll_plus') ? 2 : 0)),
           hasPurchasedUpgradeThisRound: nextStage === 'SHOP_3' ? false : get().hasPurchasedUpgradeThisRound
         });
+
+        // Apply Boss Start Effects
+        if (nextStage === 'BOSS_BLIND') {
+          const { currentBoss } = get();
+          if (currentBoss?.id === 'the_water') {
+            set({ discardsRemaining: 0 });
+          }
+          if (currentBoss?.id === 'the_manacle') {
+            set(state => ({ wordsRemaining: state.wordsRemaining - 1 }));
+          }
+          if (currentBoss?.id === 'the_needle') {
+            set({ wordsRemaining: 1 });
+          }
+          if (currentBoss?.id === 'cerulean_bell') {
+            // Force initial tile
+            const { gridTiles } = get();
+            const validTiles = gridTiles.filter(t => t.type !== 'EMPTY');
+            if (validTiles.length > 0) {
+              set({ forcedTileId: validTiles[Math.floor(Math.random() * validTiles.length)].id });
+            }
+          }
+          if (currentBoss?.id === 'crimson_heart') {
+            // Disable initial glyph
+            const { inventory } = get();
+            if (inventory.length > 0) {
+              // Try to find one with instanceId, else first
+              const target = inventory[0];
+              set({ disabledGlyphIds: [target.instanceId || target.id] });
+            }
+          }
+        }
 
         if (nextStage.includes('SHOP')) {
           get().generateShop();
