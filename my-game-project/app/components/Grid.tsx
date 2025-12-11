@@ -12,6 +12,7 @@ const Grid = () => {
   const gridTiles = useGameStore((state) => state.gridTiles);
   const selectedTileIds = useGameStore((state) => state.selectedTileIds);
   const toggleTile = useGameStore((state) => state.toggleTile);
+  const forcedTileId = useGameStore((state) => state.forcedTileId);
 
   const selectedIdsSet = new Set(selectedTileIds);
 
@@ -32,6 +33,7 @@ const Grid = () => {
           key={tile.id}
           tile={tile}
           isSelected={selectedIdsSet.has(tile.id)}
+          isForced={tile.id === forcedTileId}
           onClick={toggleTile}
         />
       ))}
