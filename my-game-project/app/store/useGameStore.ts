@@ -40,6 +40,17 @@ export interface GameState {
 
 
   // Actions
+  // App Flow
+  appPhase: 'START_SCREEN' | 'MAIN_MENU' | 'GAME';
+  isRunActive: boolean;
+
+  // Actions
+  // Actions
+  goToMenu: () => void;
+  startGame: () => void;
+  resumeGame: () => void;
+  goToStartScreen: () => void;
+
   initGame: () => void;
   refillGrid: (usedTileIds: number[]) => void;
   toggleTile: (tileId: number) => void;
@@ -74,6 +85,8 @@ export interface GameState {
 export const useGameStore = create<GameState>((set, get) => {
   return {
     // --- State ---
+    appPhase: 'START_SCREEN', // Default, will be checked by Page
+    isRunActive: false,
     tileBag: [],
     gridTiles: [],
     selectedTileIds: [],
@@ -102,6 +115,15 @@ export const useGameStore = create<GameState>((set, get) => {
 
 
     // --- Actions ---
+    goToMenu: () => set({ appPhase: 'MAIN_MENU' }),
+    startGame: () => {
+      // Initialize game state AND switch phase
+      get().initGame();
+      set({ appPhase: 'GAME' });
+    },
+    resumeGame: () => set({ appPhase: 'GAME' }),
+    goToStartScreen: () => set({ appPhase: 'START_SCREEN' }),
+
     openModal: (modal) => set({ activeModal: modal }),
     closeModal: () => set({ activeModal: null }),
 
@@ -112,6 +134,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const blindConfig = getBlindConfig(1, 1); // Round 1, Blind 1 (Small)
 
       set({
+        isRunActive: false, // Reset explicit run active flag on init (until startGame sets it true, or if called manually)
         gridTiles: initialGrid,
         tileBag: remainingBag,
         selectedTileIds: [],
