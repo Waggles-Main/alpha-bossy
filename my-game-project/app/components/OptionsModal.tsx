@@ -1,11 +1,24 @@
-'use client';
-
 import React from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { GameButton } from './GameButton';
+import { useProfileStore } from '../store/useProfileStore';
 
 export const OptionsModal = () => {
-    const { closeModal, money, addMoney, beatRound, initGame } = useGameStore();
+    const { closeModal, money, addMoney, beatRound, initGame, goToMenu } = useGameStore();
+    const { incrementRuns, activeProfileId } = useProfileStore();
+
+    const handleNewRun = () => {
+        if (activeProfileId) {
+            incrementRuns(activeProfileId);
+        }
+        initGame();
+        closeModal();
+    };
+
+    const handleMainMenu = () => {
+        goToMenu();
+        closeModal();
+    };
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-in fade-in duration-200">
@@ -21,10 +34,10 @@ export const OptionsModal = () => {
                     <GameButton variant="secondary" onClick={() => { }} className="opacity-50 cursor-not-allowed">
                         Settings
                     </GameButton>
-                    <GameButton variant="secondary" onClick={() => { initGame(); closeModal(); }} >
+                    <GameButton variant="secondary" onClick={handleNewRun} >
                         New Run
                     </GameButton>
-                    <GameButton variant="secondary" onClick={() => { }} className="opacity-50 cursor-not-allowed">
+                    <GameButton variant="secondary" onClick={handleMainMenu}>
                         Main Menu
                     </GameButton>
                     <GameButton variant="primary" onClick={closeModal} >

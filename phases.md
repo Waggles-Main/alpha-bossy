@@ -75,4 +75,6 @@ interface Glyph {
 * **Features:**
     * Event Pool Management.
     * Choice UI (Narrative text + distinct options).
-    * Persistent metaprogression (Unlocks).
+    * Persistent metaprogression (Unlocks). 
+     
+  
